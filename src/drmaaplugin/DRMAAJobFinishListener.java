@@ -70,9 +70,9 @@ public class DRMAAJobFinishListener extends Thread {
             if (info != null) {
                 try {
                     System.out.println("!!!! Job finished " + info.getJobId());
-                    EventFinished ef = new EventFinished(info.getJobId(), "1", 
+                    EventFinished ef = new EventFinished(info.getJobId(), "1",
                             System.currentTimeMillis(), info.getExitStatus());
-                    plugin.sendEvent(ef);
+                    plugin.fireEvent(ef);
 
                 } catch (Exception ex) {
                     ex.printStackTrace();

@@ -29,13 +29,16 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.*;
 import org.ggf.drmaa.*;
-import plgrid.FinishedJobInfo;
+import plgrid.GridJobArgument;
 import plgrid.GridJobInfo;
 import plgrid.GridJobSubmitInfo;
 import plgrid.PipelineGridPlugin;
-import plgrid.exception.PLGrid_InvalidMethodException;
 
 /**
+ * This is a LONI Pipeline's Grid Plugin class. It provides communication with
+ * grid manager.
+ *
+ * This plugin is designed to work with Sun Grid Engine.
  *
  * @author Petros Petrosyan
  */
@@ -145,7 +148,7 @@ public class DRMAAPlugin extends PipelineGridPlugin {
                 throw new Exception("Failed to get Username");
             }
 
-            List<String> arguments = gji.getArguments();
+            List<GridJobArgument> arguments = gji.getArguments();
 
             if (arguments == null || arguments.contains(null)) {
                 throw new Exception("Failed to get command line arguments");
@@ -163,7 +166,13 @@ public class DRMAAPlugin extends PipelineGridPlugin {
                 jt.setRemoteCommand(gji.getCommand());
             }
 
-            args.addAll(arguments);
+            for (GridJobArgument arg : arguments) {
+                String argValue = arg.getValue();
+                if (argValue != null) {
+                    args.add(argValue);
+                }
+            }
+            
             jt.setArgs(args);
 
             if (gji.getSubmissionType() == GridJobSubmitInfo.SUBMISSION_ARRAY) {
@@ -309,7 +318,7 @@ public class DRMAAPlugin extends PipelineGridPlugin {
             }
 
         } catch (InvalidJobException ex) {
-            return null;
+            gji = getFinishedJobInfo(jobID);
         } catch (DrmaaException ex) {
             System.err.println("ERROR: " + ex.getMessage());
             ex.printStackTrace();
@@ -318,9 +327,8 @@ public class DRMAAPlugin extends PipelineGridPlugin {
         return gji;
     }
 
-    @Override
-    public FinishedJobInfo getFinishedJobInfo(String jobId) throws PLGrid_InvalidMethodException {
-        FinishedJobInfo fji = null;
+    private GridJobInfo getFinishedJobInfo(String jobId) {
+        GridJobInfo fji = null;
         if (finishedJobRetrievalMethod == null || finishedJobRetrievalMethod.trim().length() == 0) {
             fji = sgeAccountingThread.getFinishedJobInfo(jobId);
         } else if (finishedJobRetrievalMethod.toLowerCase().equals("arco")) {
@@ -329,7 +337,7 @@ public class DRMAAPlugin extends PipelineGridPlugin {
             }
             fji = arcoDatabase.getFinishedJobInfo(jobId);
         } else {
-            throw new PLGrid_InvalidMethodException("Method \"" + finishedJobRetrievalMethod + "\" is not supported by this plugin for obtaining finished job information.");
+            System.err.println("Method \"" + finishedJobRetrievalMethod + "\" is not supported by this plugin for obtaining finished job information.");
         }
 
         return fji;
@@ -410,5 +418,5 @@ public class DRMAAPlugin extends PipelineGridPlugin {
     private String finishedJobRetrievalMethod;
     private ARCODatabase arcoDatabase;
     private SGEAccountingThread sgeAccountingThread;
-    public static final String DRMAA_PLUGIN_VERSION = "2.1";
+    public static final String DRMAA_PLUGIN_VERSION = "3.0";
 }

@@ -29,9 +29,13 @@ import java.sql.*;
 import java.text.NumberFormat;
 import java.util.Date;
 import java.util.zip.GZIPInputStream;
-import plgrid.FinishedJobInfo;
+import plgrid.GridJobInfo;
 
 /**
+ * This class is responsible for maintaining its own database and store
+ * information about recently finished jobs. SGE's default accounting files are
+ * used as source. This is needed for Pipeline to retrieve finished job
+ * information when it missed the finished job event.
  *
  * @author Petros Petrosyan
  */
@@ -431,7 +435,7 @@ public class SGEAccountingThread extends Thread {
                             updateLastSyncTime();
                             updateLastSyncFileSize(f.length());
                         }
-                        System.out.println("SGE Accounting:" + numJobsAdded + " jobs added to db");
+//                        System.out.println("SGE Accounting:" + numJobsAdded + " jobs added to db");
                         numJobsAdded = 0;
                     } else {
                         if (!f.exists() || f.length() < getLastSyncFileSize()) {
@@ -452,12 +456,12 @@ public class SGEAccountingThread extends Thread {
 
                 FinishedJobRecord r = new FinishedJobRecord(response);
 
-                if (log) {
-
-                    System.out.println("SGE Accounting: Job " + r.job_number + "." + r.task_number
-                            + " finished ");// + "(qname=" + r.qname + ", endTime=" + r.end_time
-//                            + " startTime=" + r.start_time + " exitStatus=" + r.exit_status + ")");
-                }
+//                if (log) {
+//
+//                    System.out.println("SGE Accounting: Job " + r.job_number + "." + r.task_number
+//                            + " finished ");// + "(qname=" + r.qname + ", endTime=" + r.end_time
+////                            + " startTime=" + r.start_time + " exitStatus=" + r.exit_status + ")");
+//                }
 
                 if (System.currentTimeMillis() - r.end_time < cutOffTime) {
                     persist(r);
@@ -476,10 +480,14 @@ public class SGEAccountingThread extends Thread {
         }
     }
 
-    public FinishedJobInfo getFinishedJobInfo(String jobId) {
+    public GridJobInfo getFinishedJobInfo(String jobId) {
         if (dbConnection == null) {
+            System.err.println("SGEAccountingThread: The database connection cannot be null.");
             return null;
         }
+
+        GridJobInfo gji = new GridJobInfo(jobId);
+        gji.setState(GridJobInfo.STATE_NOT_FOUND);
 
         StringBuilder sb = new StringBuilder("SELECT ");
         sb.append(START_TIME_COLUMN);
@@ -505,25 +513,19 @@ public class SGEAccountingThread extends Thread {
                 long end_time = rs.getLong(END_TIME_COLUMN);
                 int exit_status = rs.getInt(EXIT_STATUS_COLUMN);
 
-                FinishedJobInfo fji = new FinishedJobInfo(jobId);
 
-                fji.setStartTimestamp(new Timestamp(start_time));
-                fji.setEndTimestamp(new Timestamp(end_time));
-                fji.setExitStatus(exit_status);
 
-                System.out.println("Returned jobInfo: " + jobId + " start: " + start_time + " end: " + end_time + " exit_status: " + exit_status);
-
-                return fji;
-
+                gji.setState(GridJobInfo.STATE_FINISHED);
+                gji.setStartTime(start_time);
+                gji.setFinishTime(end_time);
+                gji.setExitStatus(exit_status);
             }
 
         } catch (Exception ex) {
             ex.printStackTrace();
         }
-
-        System.out.println("Returned NULL jobInfo: " + jobId);
-
-        return null;
+        
+        return gji;
     }
 
     private int cleanup(long cutOffTime) {
@@ -599,6 +601,17 @@ public class SGEAccountingThread extends Thread {
 
                 if (r.task_number > 0) {
                     jobId += "." + r.task_number;
+                }
+
+                long startTime = r.start_time;
+                long endTime = r.end_time;
+
+                if (startTime == endTime) {
+                    Double utime = Double.parseDouble(r.ru_utime);
+
+                    if (utime != null && utime > 0) {
+                        endTime += utime * 1000;
+                    }
                 }
 
                 stmt.setString(1, jobId);

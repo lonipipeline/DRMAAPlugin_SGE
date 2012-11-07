@@ -62,7 +62,7 @@ public class DRMAAJobStatusChecker extends Thread {
                         if (status != Session.DONE) {
 
                             if (status == Session.RUNNING) {
-                                plugin.sendEvent(new EventRunning(jobID, "1"));
+                                plugin.fireEvent(new EventRunning(jobID, "1"));
                                 plugin.removeQueuedJob(jobID);
                             } else {
                                 //logger.log(Level.SEVERE, "getJobProgramStatus of " + job + " returned status: " + status);
