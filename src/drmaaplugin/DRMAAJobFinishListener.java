@@ -1,5 +1,5 @@
 /*
- Copyright 2000-2012  Laboratory of Neuro Imaging (LONI), <http://www.LONI.ucla.edu/>.
+ Copyright 2000-2013  Laboratory of Neuro Imaging (LONI), <http://www.LONI.ucla.edu/>.
 
  This file is part of the LONI Pipeline Plug-ins (LPP), not the LONI Pipeline itself;
  see <http://pipeline.loni.ucla.edu/>.
@@ -69,9 +69,10 @@ public class DRMAAJobFinishListener extends Thread {
 
             if (info != null) {
                 try {
-                    System.out.println("!!!! Job finished " + info.getJobId());
-                    EventFinished ef = new EventFinished(info.getJobId(), "1",
+                    String jobId = info.getJobId();
+                    EventFinished ef = new EventFinished(jobId, "1",
                             System.currentTimeMillis(), info.getExitStatus());
+                    plugin.removeQueuedJob(jobId);
                     plugin.fireEvent(ef);
 
                 } catch (Exception ex) {
